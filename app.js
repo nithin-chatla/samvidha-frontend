@@ -8,7 +8,7 @@ console.log("app.js loaded");
 // -----------------------------
 // CONFIG
 // -----------------------------
-const API_BASE = "https://samvidha-backend.onrender.com/";   // CHANGE IF NEEDED
+const API_BASE = "https://web-production-d582e.up.railway.app/";   // CHANGE IF NEEDED
 
 // -----------------------------
 // TOKEN HELPERS
@@ -256,4 +256,5 @@ if (path.includes("dashboard.html")) {
     showView("dashboard");
     loadOverview();
 }
+
 
