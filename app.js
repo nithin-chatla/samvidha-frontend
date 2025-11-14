@@ -104,9 +104,19 @@ if(document.getElementById("view-dashboard")){
     renderTableElement(w, j.midmarks.theory);
     w.innerHTML += "<h5 class='mt-3'>Laboratory</h5>";
     renderTableElement(w, j.midmarks.laboratory);
+    document.getElementById("marksLoading").innerText = "Loading...";
+
+const j = await api("midmarks");
+
+document.getElementById("marksLoading").innerText = "";
+
   }
 
   async function loadProfile(){
+    document.getElementById("profileLoading").innerText = "Loading...";
+const j = await api("profile");
+document.getElementById("profileLoading").innerText = "";
+
     const j = await api("profile");
     const p = j.profile;
     const w = document.getElementById("profileWrap");
@@ -148,4 +158,5 @@ if(document.getElementById("view-dashboard")){
   showView("dashboard");
   loadOverview();
 }
+
 
