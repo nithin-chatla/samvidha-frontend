@@ -11,7 +11,7 @@ async function api(path, options={}){
   const res = await fetch(API_BASE + path, options);
   if(res.status === 401){
     clearToken();
-    location.href = "login.html";
+    location.href = "index.html";
   }
   return res.json();
 }
@@ -64,7 +64,7 @@ if(document.getElementById("view-dashboard")){
 
   document.getElementById("btnLogout").onclick = ()=>{
     clearToken();
-    location.href="login.html";
+    location.href="index.html";
   };
 
   async function loadOverview(){
@@ -148,3 +148,4 @@ if(document.getElementById("view-dashboard")){
   showView("dashboard");
   loadOverview();
 }
+
