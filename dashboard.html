@@ -88,6 +88,19 @@ body {
   from { background-position: 200% 0; }
   to { background-position: -200% 0; }
 }
+.loader-spin {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #ddd;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: auto;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
 </style>
 </head>
@@ -116,45 +129,89 @@ body {
 
   <!-- ********************** DASHBOARD VIEW *********************** -->
   <section id="view-dashboard" class="view">
-    <div class="row g-4">
 
-      <!-- Attendance Overview -->
-      <div class="col-md-4">
-        <div class="glass-card p-4">
-          <h6 class="fw-bold mb-2">Attendance Overview</h6>
-          <canvas id="attendanceChart" height="150"></canvas>
-        </div>
-      </div>
+  <!-- Attendance Overview -->
+  <div class="row g-4">
 
-      <!-- Marks Overview -->
-      <div class="col-md-4">
-        <div class="glass-card p-4">
-          <h6 class="fw-bold mb-2">Average Marks</h6>
-          <canvas id="marksChart" height="150"></canvas>
-        </div>
-      </div>
+    <!-- Animated Attendance Summary Card -->
+    <div class="col-md-4">
+      <div class="glass-card p-4 text-center" style="border-top: 5px solid #4ADE80;">
+        <h5 class="fw-bold mb-3">Overall Attendance</h5>
 
-      <!-- Profile Overview -->
-      <div class="col-md-4">
-        <div class="glass-card p-4">
-          <h6 class="fw-bold mb-2">Profile</h6>
-          <div id="profileCard">
-            <div class="shimmer"></div>
-            <div class="shimmer"></div>
-            <div class="shimmer"></div>
+        <div style="position: relative; width:150px; margin:auto;">
+          <canvas id="overallAttendanceGauge" width="150" height="150"></canvas>
+          <div id="overallAttendanceText"
+               style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+               font-size:28px; font-weight:700;">
+            0%
           </div>
         </div>
-      </div>
 
+        <p class="text-muted mt-2">Based on your total attendance</p>
+      </div>
     </div>
-  </section>
+
+    <!-- GREEN SAFE -->
+    <div class="col-md-4">
+      <div class="glass-card p-4 shadow-sm">
+        <h6 class="fw-bold text-green-600 mb-2">
+          <i class="fa-solid fa-circle-check me-2"></i>Safe Subjects (≥ 85%)
+        </h6>
+        <h2 id="safeCount" class="fw-bold text-green-500">0</h2>
+      </div>
+    </div>
+
+    <!-- YELLOW WARNING -->
+    <div class="col-md-4">
+      <div class="glass-card p-4 shadow-sm">
+        <h6 class="fw-bold text-yellow-600 mb-2">
+          <i class="fa-solid fa-triangle-exclamation me-2"></i>Warning (75% - 84%)
+        </h6>
+        <h2 id="warnCount" class="fw-bold text-yellow-500">0</h2>
+      </div>
+    </div>
+
+    <!-- RED CRITICAL -->
+    <div class="col-md-4">
+      <div class="glass-card p-4 shadow-sm">
+        <h6 class="fw-bold text-red-600 mb-2">
+          <i class="fa-solid fa-circle-xmark me-2"></i>Critical (≤ 74%)
+        </h6>
+        <h2 id="criticalCount" class="fw-bold text-red-500">0</h2>
+      </div>
+    </div>
+
+    <!-- Existing Attendance Chart -->
+    <div class="col-md-8">
+      <div class="glass-card p-4">
+        <h6 class="fw-bold mb-2">Attendance % by Subject</h6>
+        <canvas id="attendanceChart" height="160"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+</section>
+
 
 
   <!-- ********************** ATTENDANCE *********************** -->
   <section id="view-attendance" class="view d-none">
     <div class="glass-card p-4">
       <h4>Attendance</h4>
-      <div id="attendanceTableWrap" class="table-responsive mt-3"></div>
+      <div id="attendanceTableWrap" class="table-responsive mt-3">
+  
+  <!-- Skeleton Loader -->
+  <div id="attendanceLoader">
+      <div class="shimmer" style="height: 20px; width: 80%;"></div>
+      <div class="shimmer" style="height: 20px; width: 95%;"></div>
+      <div class="shimmer" style="height: 20px; width: 90%;"></div>
+      <div class="shimmer" style="height: 20px; width: 85%;"></div>
+      <div class="shimmer" style="height: 20px; width: 80%;"></div>
+  </div>
+
+</div>
+
     </div>
   </section>
 
@@ -184,3 +241,4 @@ body {
 
 </body>
 </html>
+
