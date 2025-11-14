@@ -1,260 +1,238 @@
-/***************************************
- * SAMVIDHA FRONTEND JS (FINAL VERSION)
- * Works with index.html as login page
-***************************************/
+/*******************************************
+ * FINAL ATTENDANCE-ONLY APP.JS
+ *******************************************/
 
-console.log("app.js loaded");
+/* ========= CONFIG ========= */
+const API_BASE = "https://web-production-d582e.up.railway.app/";  // <-- your backend
+const FETCH_TIMEOUT = 35000; // 35 seconds timeout
 
-// -----------------------------
-// CONFIG
-// -----------------------------
-const API_BASE = "https://web-production-d582e.up.railway.app/";   // CHANGE IF NEEDED
+/* ========= TOKEN + LOGIN ========= */
+function saveToken(t) {
+    localStorage.setItem("sam_token", t);
+}
+function getToken() {
+    return localStorage.getItem("sam_token");
+}
+function logout() {
+    localStorage.removeItem("sam_token");
+    window.location = "index.html";
+}
 
-// -----------------------------
-// TOKEN HELPERS
-// -----------------------------
-function setToken(t){ localStorage.setItem("sam_token", t); }
-function getToken(){ return localStorage.getItem("sam_token"); }
-function clearToken(){ localStorage.removeItem("sam_token"); }
+/* ========= REQUEST WITH TIMEOUT ========= */
+async function fetchTimeout(url, options = {}, timeout = FETCH_TIMEOUT) {
+    const controller = new AbortController();
+    options.signal = controller.signal;
 
-// -----------------------------
-// API FETCH WRAPPER
-// -----------------------------
-async function api(path, options = {}) {
+    const timer = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        const res = await fetch(url, options);
+        clearTimeout(timer);
+        return res;
+    } catch (e) {
+        clearTimeout(timer);
+        throw e;
+    }
+}
+
+/* ========= API WRAPPER ========= */
+async function api(endpoint, options = {}) {
+    const token = getToken();
     options.headers = options.headers || {};
-    const t = getToken();
-    if (t) options.headers["Authorization"] = "Bearer " + t;
+    if (token) options.headers["Authorization"] = "Bearer " + token;
 
-    const res = await fetch(API_BASE + path, options);
+    try {
+        const response = await fetchTimeout(API_BASE + endpoint, options);
+        const text = await response.text();
 
-    if(res.status === 401){
-        clearToken();
-        location.href = "index.html";    // back to login
+        try {
+            return JSON.parse(text);
+        } catch {
+            return { ok: false, error: "invalid_response", raw: text };
+        }
+
+    } catch (err) {
+        return { ok: false, error: err.message || "network_error" };
+    }
+}
+
+/* ========= LOGIN HANDLER ========= */
+if (window.location.pathname.includes("index.html")) {
+    document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
+
+        const res = await api("login", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ username, password })
+        });
+
+        if (!res.ok) {
+            document.getElementById("loginError").classList.remove("d-none");
+            return;
+        }
+
+        saveToken(res.token);
+        window.location = "dashboard.html";
+    });
+}
+
+/* ========= GAUGE CHART ========= */
+let gaugeChart;
+
+/* ========= CAR NEEDLE SPEEDOMETER ========= */
+/* ====== FINAL RESPONSIVE NEEDLE GAUGE ====== */
+function drawGauge(percent) {
+    const needle = document.getElementById("needle");
+    const speedText = document.getElementById("speedText");
+
+    if (!needle || !speedText) {
+        console.log("Speedometer elements missing");
         return;
     }
 
-    return res.json();
-}
+    // Convert percentage -> needle angle
+    const angle = (percent * 1.8) - 90;
 
-// -----------------------------------------
-// DETECT PAGE (LOGIN OR DASHBOARD)
-// -----------------------------------------
-const path = window.location.pathname;
+    // Animate needle
+    needle.style.transform = `rotate(${angle}deg)`;
 
-// If login page
-if (path.includes("index.html") || path === "/" || path === "/samvidha-frontend/") {
+    // Animate number
+    let start = 0;
+const end = parseFloat(percent);
+const step = end / 40;
 
-    console.log("Login page detected");
-
-    const form = document.getElementById("loginForm");
-    const alertBox = document.getElementById("loginAlert");
-
-    if (form) {
-        form.addEventListener("submit", async (e) => {
-            e.preventDefault();
-
-            alertBox.classList.add("d-none");
-
-            const user = document.getElementById("username").value.trim();
-            const pass = document.getElementById("password").value.trim();
-
-            try {
-                const res = await fetch(API_BASE + "login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ username: user, password: pass })
-                });
-
-                const j = await res.json();
-
-                if (j.ok) {
-                    setToken(j.token);
-                    window.location = "dashboard.html";   // ← REDIRECT
-                } else {
-                    alertBox.innerText = "Invalid credentials";
-                    alertBox.classList.remove("d-none");
-                }
-
-            } catch(err) {
-                alertBox.innerText = "Network error. Try again.";
-                alertBox.classList.remove("d-none");
-            }
-        });
+const anim = setInterval(() => {
+    start += step;
+    if (start >= end) {
+        start = end;
+        clearInterval(anim);
     }
+    speedText.textContent = start.toFixed(2) + "%";
+}, 15);
+
 }
 
 
+/* ========= SUBJECT BAR CHART ========= */
+let subjectChart;
 
-// -----------------------------
-// DASHBOARD PAGE
-// -----------------------------
-if (path.includes("dashboard.html")) {
+function drawBarChart(att) {
+    const canvas = document.getElementById("subjectChart");
+    if (!canvas) return;
 
-    console.log("Dashboard detected");
+    const labels = [];
+    const values = [];
 
-    // NAVIGATION HANDLING
-    const links = document.querySelectorAll(".nav-link[data-view]");
-    const views = document.querySelectorAll(".view");
+    att.forEach(row => {
+        const name = row["Course Name"] || row["Subject Name"] || row["Subject"] || "Subject";
+        const percent = parseFloat(String(row["Attendance %"]).replace("%", "")) || 0;
 
-    function showView(v) {
-        views.forEach(view => view.classList.add("d-none"));
-        document.getElementById("view-" + v).classList.remove("d-none");
-        document.getElementById("pageTitle").innerText = v.charAt(0).toUpperCase() + v.slice(1);
-    }
-
-    links.forEach(a => {
-        a.addEventListener("click", () => {
-            links.forEach(x => x.classList.remove("active"));
-            a.classList.add("active");
-
-            const view = a.dataset.view;
-            showView(view);
-
-            if(view === "attendance") loadAttendance();
-            if(view === "marks") loadMarks();
-            if(view === "profile") loadProfile();
-        });
+        labels.push(name.slice(0, 20));
+        values.push(percent);
     });
 
-    // LOGOUT
-    const logoutBtn = document.getElementById("btnLogout");
-    if(logoutBtn){
-        logoutBtn.onclick = () => {
-            clearToken();
-            location.href = "index.html";
+    const ctx = canvas.getContext("2d");
+    if (subjectChart) subjectChart.destroy();
+
+    subjectChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                label: "% Attendance",
+                data: values,
+                backgroundColor: values.map(v =>
+                    v >= 85 ? "#4ade80" : v >= 75 ? "#facc15" : "#f87171"
+                ),
+                borderRadius: 8
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: "white" }},
+                y: { ticks: { color: "white" }, max: 100 }
+            }
         }
-    }
-
-    // -----------------------------
-    // LOAD OVERVIEW FOR DASHBOARD
-    // -----------------------------
-    async function loadOverview() {
-        try {
-            const j = await api("all");
-
-            if (!j.ok) return;
-
-            // PROFILE
-            const p = j.profile;
-            document.getElementById("userName").innerText = p["Name"] || "Student";
-
-            // ATTENDANCE CHART
-            const att = j.attendance || [];
-            const labels = att.map(x => x["Course Code"]);
-            const values = att.map(x => parseFloat(x["Attendance %"]) || 0);
-
-            new Chart(document.getElementById("attendanceChart"), {
-                type: "bar",
-                data: {
-                    labels,
-                    datasets: [{
-                        label: "Attendance %",
-                        data: values,
-                        backgroundColor: "#4F46E5"
-                    }]
-                }
-            });
-
-            // MARKS CHART
-            const th = j.midmarks.theory || [];
-            const mlabels = th.map(x => x["Course Code"]);
-            const mvals = th.map(x => parseFloat(x["Total Marks (40M)"]) || 0);
-
-            new Chart(document.getElementById("marksChart"), {
-                type: "line",
-                data: {
-                    labels: mlabels,
-                    datasets: [{
-                        label: "CIA Marks",
-                        data: mvals,
-                        borderColor: "#06B6D4",
-                        tension: 0.35
-                    }]
-                }
-            });
-
-            // PROFILE CARD
-            const card = document.getElementById("profileCard");
-            card.innerHTML = `
-                <strong>Name:</strong> ${p["Name"]}<br>
-                <strong>Roll Number:</strong> ${p["Roll Number"]}<br>
-                <strong>Branch:</strong> ${p["Branch"]}
-            `;
-
-        } catch (err) {
-            console.log("Overview error:", err);
-        }
-    }
-
-    // -----------------------------
-    // ATTENDANCE PAGE
-    // -----------------------------
-    async function loadAttendance() {
-        const wrap = document.getElementById("attendanceTableWrap");
-        wrap.innerHTML = "Loading...";
-
-        const j = await api("attendance");
-        wrap.innerHTML = createTable(j.attendance);
-    }
-
-    // -----------------------------
-    // MID MARKS PAGE
-    // -----------------------------
-    async function loadMarks() {
-        const wrap = document.getElementById("marksTablesWrap");
-        wrap.innerHTML = "Loading...";
-
-        const j = await api("midmarks");
-
-        wrap.innerHTML =
-            `<h5>Theory</h5>` +
-            createTable(j.midmarks.theory) +
-            `<h5 class="mt-3">Laboratory</h5>` +
-            createTable(j.midmarks.laboratory);
-    }
-
-    // -----------------------------
-    // PROFILE PAGE
-    // -----------------------------
-    async function loadProfile() {
-        const wrap = document.getElementById("profileWrap");
-        wrap.innerHTML = "Loading...";
-
-        const j = await api("profile");
-        const p = j.profile;
-
-        wrap.innerHTML = Object.keys(p)
-            .map(k => `<div class="d-flex justify-content-between border-bottom py-2">
-                        <strong>${k}</strong><span>${p[k]}</span>
-                       </div>`)
-            .join("");
-    }
-
-    // -----------------------------
-    // TABLE GENERATOR
-    // -----------------------------
-    function createTable(rows) {
-        if (!rows || rows.length === 0) return "<p>No data</p>";
-
-        const keys = Object.keys(rows[0]);
-
-        let html = `<table class="table table-sm table-striped"><thead><tr>`;
-        keys.forEach(k => html += `<th>${k}</th>`);
-        html += `</tr></thead><tbody>`;
-
-        rows.forEach(r => {
-            html += `<tr>`;
-            keys.forEach(k => html += `<td>${r[k]}</td>`);
-            html += `</tr>`;
-        });
-
-        html += `</tbody></table>`;
-        return html;
-    }
-
-    // INITIAL LOAD
-    showView("dashboard");
-    loadOverview();
+    });
 }
 
+/* ========= TABLE RENDER ========= */
+function renderTable(att) {
+    const wrap = document.getElementById("attendanceTableWrap");
 
+    let rows = "";
+    att.forEach((row, i) => {
+        const subject = row["Course Name"] || row["Subject Name"] || row["Subject"];
+        const held = row["Held"] || row["Total"];
+        const attended = row["Attended"] || row["Present"];
+        const percent = parseFloat(String(row["Attendance %"]).replace("%","")) || 0;
+
+        const badge =
+            percent >= 85 ? "badge-safe" :
+            percent >= 75 ? "badge-warn" :
+            "badge-critical";
+
+        const points = Math.round((percent / 100) * 10);
+
+        rows += `
+            <tr class="row-anim" style="animation-delay:${i*50}ms">
+                <td>${subject}</td>
+                <td>${held}</td>
+                <td>${attended}</td>
+                <td>${parseFloat(percent).toFixed(2)}%</td>
+                <td><span class="${badge}">${percent >= 85 ? "Safe" : percent >= 75 ? "Warning" : "Critical"}</span></td>
+                <td>${points} pts</td>
+            </tr>
+        `;
+    });
+
+    wrap.innerHTML = `
+        <table class="table-glass w-100">
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Held</th>
+                    <th>Attended</th>
+                    <th>Attendance</th>
+                    <th>Status</th>
+                    <th>Points</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+/* ========= MAIN LOAD ========= */
+async function loadAttendance() {
+    const res = await api("attendance", { method: "GET" });
+
+    if (!res.ok) {
+        alert("Failed to load attendance!");
+        return;
+    }
+
+    const data = res.attendance || res.data || res;
+
+    // Draw components
+    renderTable(data);
+
+    const overall = (
+    data.reduce((s, r) => s + (parseFloat(String(r["Attendance %"]).replace("%","")) || 0), 0)
+    / data.length
+).toFixed(2);
+
+
+    drawGauge(overall);
+    drawBarChart(data);
+}
+
+/* ========= INIT DASHBOARD ========= */
+if (window.location.pathname.includes("dashboard.html")) {
+    document.addEventListener("DOMContentLoaded", loadAttendance);
+}
